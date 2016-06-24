@@ -1,0 +1,5 @@
+cmake_minimum_required(VERSION 2.8)
+project( image-sorting )
+find_package( OpenCV REQUIRED )
+add_executable( image-sorting main.cpp )
+target_link_libraries( image-sorting ${OpenCV_LIBS} )

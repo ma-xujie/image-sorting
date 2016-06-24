@@ -1,0 +1,3 @@
+cd release
+make
+
