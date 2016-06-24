@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 2.8)
+set (CMAKE_CXX_STANDARD 11)
 project( image-sorting )
 find_package( OpenCV REQUIRED )
-add_executable( image-sorting main.cpp )
+add_executable( image-sorting main.cpp tools.cpp )
 target_link_libraries( image-sorting ${OpenCV_LIBS} )

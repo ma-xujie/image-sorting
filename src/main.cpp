@@ -1,16 +1,24 @@
-#include <algorithm>
-#include <cstdio>
-#include <iostream>
-#include <vector>
-#include <dirent.h>
-#include <sys/types.h>
-#include <unistd.h>
-#include <opencv2/opencv.hpp>
+#include "common.hpp"
+#include "tools.hpp"
 
 using namespace std;
 using namespace cv;
 
 int main(int argc, char const *argv[]) {
+  if (argc < 1) {
+    cout << "ERROR: No input argument" << endl;
+    cout << "USEAGE: image-sorting IMAGE_DIR_PATH" << endl;
+    return 0;
+  }
+  const char *dir = argv[1];
+  vector<string> images_filename = ListDir(dir);
 
-  return 0;
+  for (string filename : images_filename) {
+    if (EndsWith(".jpg", filename)) {
+      string image_path = string(dir) + "/" + filename;
+      Mat image = imread(image_path.c_str());
+      imshow("image-sorting", image);
+      waitKey(0);
+    }
+  }
 }
