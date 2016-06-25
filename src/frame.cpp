@@ -22,7 +22,20 @@ int GetNumberFromPath(const char *path) {
   return ret;
 }
 
+const char *GetFilenameFromPath(const char *path) {
+  const char *filename = path;
+  int i = 0;
+  while (path[i] != 0) {
+    if (path[i] == '/' || path[i] == '\\') {
+      filename = path + i + 1;
+    }
+    ++i;
+  }
+  return filename;
+}
+
 Frame::Frame(const char *path) {
+  this->filename = GetFilenameFromPath(path);
   this->raw = imread(path);
   this->number = GetNumberFromPath(path);
   CheckIsIndoor();

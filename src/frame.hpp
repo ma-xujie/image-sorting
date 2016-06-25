@@ -11,6 +11,7 @@ public:
   bool isIndoor;
   int phase;
   int number;
+  string filename;
 
 private:
   void CheckIsIndoor();

@@ -48,8 +48,7 @@ void InitAbsdiff(const vector<Frame> &frames) {
       // multiply(f1.resized, f2.resized, t);
       absdiff(f1.resized, f2.resized, t);
       Scalar_<double> s = sum(t);
-      ABSDIFF[f1.number][f2.number] = ABSDIFF[f2.number][f1.number] =
-          (s.val[0] + s.val[1] + s.val[2]);
+      ABSDIFF[i][j] = ABSDIFF[j][i] = (s.val[0] + s.val[1] + s.val[2]);
     }
   }
 }
@@ -102,31 +101,118 @@ deque<int> SortFrames(vector<int> frames) {
   return sorted_frames;
 }
 
-bool IsSceneInversed(vector<int> scene) {
+bool IsSceneInversed(vector<int> scene, const vector<Frame> &frames) {
   if (scene.size() == 1) {
     return false;
   }
   int s = 0;
   for (int i = 0; i != scene.size() - 1; ++i) {
-    if (true) {
+    int phase_diff = frames[i + 1].phase - frames[i].phase;
+    if ((0 < phase_diff && phase_diff < 5) || phase_diff < 295) {
+      s += 1;
+    } else {
+      s -= 1;
     }
   }
+  return s < 0;
 }
-vector<vector<int>> OutdoorFramesResort(deque<int> frames) {
-  const int threshold = 1e5;
+
+deque<vector<int>> OutdoorFramesReorder(deque<int> outdoor_frames,
+                                        const vector<Frame> &frames) {
+  const int threshold = 6e6;
+
   vector<vector<int>> scenes;
+  deque<vector<int>> sorted_scenes;
+
   vector<int> cur_scene;
-  cur_scene.push_back(frames.front());
-  frames.pop_front();
-  while (!frames.empty()) {
-    if (ABSDIFF[frames.front()][cur_scene.back()] < threshold) {
-      cur_scene.push_back(frames.front());
-      frames.pop_front();
+  cur_scene.push_back(outdoor_frames.front());
+  outdoor_frames.pop_front();
+  while (!outdoor_frames.empty()) {
+    if (ABSDIFF[outdoor_frames.front()][cur_scene.back()] < threshold) {
+      cur_scene.push_back(outdoor_frames.front());
+      outdoor_frames.pop_front();
     } else {
       scenes.push_back(cur_scene);
       cur_scene.clear();
-      cur_scene.push_back(frames.front());
-      frames.pop_front();
+      cur_scene.push_back(outdoor_frames.front());
+      outdoor_frames.pop_front();
     }
   }
+
+  for (int i = 0; i != scenes.size(); ++i) {
+    if (IsSceneInversed(scenes[i], frames)) {
+      reverse(scenes[i].begin(), scenes[i].end());
+    }
+  }
+
+  int concat_flag = 1;
+  while (concat_flag) {
+    concat_flag = 0;
+    for (int i = 0; i != scenes.size(); ++i) {
+      for (int j = 0; j != scenes.size(); ++j) {
+        if (i == j || scenes[i].empty() || scenes[j].empty()) {
+          continue;
+        }
+        int ib = scenes[i].back(), jf = scenes[j].front();
+        if ((ABSDIFF[ib][jf] < threshold ||
+             (scenes[i].size() > 1 &&
+              ABSDIFF[ib][jf] < 2 * ABSDIFF[ib][*(scenes[i].end() - 2)]) ||
+             (scenes[j].size() > 1 &&
+              ABSDIFF[ib][jf] < 2 * ABSDIFF[jf][scenes[j][1]])) &&
+            (abs(frames[ib].phase - frames[jf].phase) < 4 ||
+             frames[ib].phase - frames[jf].phase > 298)) {
+          scenes[i].insert(scenes[i].end(), scenes[j].begin(), scenes[j].end());
+          scenes[j].clear();
+          concat_flag = 1;
+        }
+      }
+    }
+  }
+
+  sorted_scenes.push_back(scenes.back());
+  scenes.back().clear();
+
+  int all_empty_flag = 0;
+  while (!all_empty_flag) {
+    int min_phase_diff = 1000;
+    int which_scene;
+    bool is_back;
+    all_empty_flag = 1;
+    for (int i = 0; i != scenes.size(); ++i) {
+      if (scenes[i].empty()) {
+        continue;
+      }
+      all_empty_flag = 0;
+      int back_phase_diff = abs(frames[scenes[i].front()].phase -
+                                frames[sorted_scenes.back().back()].phase);
+      int front_phase_diff = abs(frames[sorted_scenes.front().front()].phase -
+                                 frames[scenes[i].back()].phase);
+
+      if (back_phase_diff > 290) {
+        back_phase_diff = 302 - back_phase_diff;
+      }
+      if (front_phase_diff > 290) {
+        front_phase_diff = 302 - front_phase_diff;
+      }
+      if (back_phase_diff < min_phase_diff) {
+        min_phase_diff = back_phase_diff;
+        which_scene = i;
+        is_back = 1;
+      }
+      if (front_phase_diff < min_phase_diff) {
+        min_phase_diff = front_phase_diff;
+        which_scene = i;
+        is_back = 0;
+      }
+    }
+    if (!all_empty_flag) {
+      if (is_back) {
+        sorted_scenes.push_back(scenes[which_scene]);
+      } else {
+        sorted_scenes.push_front(scenes[which_scene]);
+      }
+      scenes[which_scene].clear();
+    }
+  }
+  return sorted_scenes;
 }
