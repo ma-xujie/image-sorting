@@ -2,6 +2,20 @@
 #include <dirent.h>
 #include <sys/types.h>
 
+void Init() {
+  // load title image
+  const char *title_path = "./title.jpg";
+  TITLE = imread(title_path);
+
+  // load earth
+  const char *earth_dir = "./earth";
+  char earth_path[20];
+  for (int i = 0; i != EARTH_NUMBER; ++i) {
+    sprintf(earth_path, "%s/%03d.jpg", earth_dir, i);
+    EARTH[i] = imread(earth_path);
+  }
+}
+
 std::vector<std::string> ListDir(const char *path) {
   DIR *dir;
   dir = opendir(path);

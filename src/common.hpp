@@ -11,4 +11,8 @@
 using namespace std;
 using namespace cv;
 
+const int EARTH_NUMBER = 302;
+Mat EARTH[EARTH_NUMBER];
+Mat TITLE;
+
 #endif /* end of include guard: COMMON_HPP_INCLUDE */

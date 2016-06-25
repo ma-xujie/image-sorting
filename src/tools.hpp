@@ -3,6 +3,7 @@
 
 #include "common.hpp"
 
+void Init();
 vector<string> ListDir(const char *dir_path);
 bool EndsWith(const string &ending, const string &src);
 
