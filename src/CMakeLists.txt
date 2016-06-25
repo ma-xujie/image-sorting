@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 2.8)
 set (CMAKE_CXX_STANDARD 11)
+set (CMAKE_CXX_FLAGS "-O3")
 project( image-sorting )
 find_package( OpenCV REQUIRED )
 add_executable( image-sorting main.cpp tools.cpp )

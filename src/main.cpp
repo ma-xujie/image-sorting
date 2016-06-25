@@ -14,7 +14,7 @@ int main(int argc, char const *argv[]) {
   vector<string> images_filename = ListDir(dir);
 
   for (string filename : images_filename) {
-    if (EndsWith(".jpg", filename)) {
+    if (EndsWith(".jpg", filename) || EndsWith(".jpeg", filename)) {
       string image_path = string(dir) + "/" + filename;
       Mat image = imread(image_path.c_str());
       imshow("image-sorting", image);
