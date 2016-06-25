@@ -8,7 +8,7 @@ using namespace cv;
 int main(int argc, char const *argv[]) {
   if (argc < 1) {
     cout << "ERROR: No input argument" << endl;
-    cout << "USEAGE:  image-sorting IMAGE_DIR_PATH" << endl;
+    cout << "USEAGE: image-sorting IMAGE_DIR_PATH" << endl;
     return 0;
   }
 
@@ -20,10 +20,12 @@ int main(int argc, char const *argv[]) {
 
   for (string filename : images_filename) {
     if (EndsWith(".jpg", filename) || EndsWith(".jpeg", filename)) {
+
       string image_path = string(dir) + "/" + filename;
       frames.emplace_back(image_path.c_str());
-      imshow("image-sorting", frames.back().raw);
-      waitKey(0);
+      // imshow("image-sorting", frames.back().raw);
+      // waitKey(0);
     }
   }
+  InitSimilarity(frames);
 }

@@ -1,0 +1,7 @@
+#include "common.hpp"
+
+double SIMILARITY[MAX_FRAME_NUMBER][MAX_FRAME_NUMBER];
+bool USED[MAX_FRAME_NUMBER];
+
+Mat EARTH[EARTH_NUMBER];
+Mat TITLE;

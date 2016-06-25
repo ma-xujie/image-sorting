@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <ctime>
 #include <iostream>
 #include <opencv2/opencv.hpp>
 #include <string>
@@ -11,8 +12,12 @@
 using namespace std;
 using namespace cv;
 
+const int MAX_FRAME_NUMBER = 5000;
+extern double SIMILARITY[MAX_FRAME_NUMBER][MAX_FRAME_NUMBER];
+extern bool USED[MAX_FRAME_NUMBER];
+
 const int EARTH_NUMBER = 302;
-Mat EARTH[EARTH_NUMBER];
-Mat TITLE;
+extern Mat EARTH[EARTH_NUMBER];
+extern Mat TITLE;
 
 #endif /* end of include guard: COMMON_HPP_INCLUDE */

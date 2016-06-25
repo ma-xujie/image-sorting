@@ -16,6 +16,20 @@ void Init() {
   }
 }
 
+void InitSimilarity(const vector<Frame> &frames) {
+  Mat t;
+  for (int i = 0; i != frames.size() - 1; ++i) {
+    for (int j = i + 1; j != frames.size(); ++j) {
+      const Frame &f1 = frames[i], &f2 = frames[j];
+      multiply(f1.resized, f2.resized, t);
+      Scalar_<double> s = sum(t);
+      SIMILARITY[f1.number][f2.number] = SIMILARITY[f2.number][f1.number] =
+          (s.val[0] + s.val[1] + s.val[2]) /
+          (f1.resized_norm * f2.resized_norm);
+    }
+  }
+}
+
 std::vector<std::string> ListDir(const char *path) {
   DIR *dir;
   dir = opendir(path);

@@ -13,6 +13,7 @@ int GetNumberFromPath(const char *path) {
         number[j++] = path[i];
       }
     }
+    ++i;
   }
   number[j] = 0;
 
@@ -23,15 +24,37 @@ int GetNumberFromPath(const char *path) {
 
 Frame::Frame(const char *path) {
   this->raw = imread(path);
-  this->original_number = GetNumberFromPath(path);
+  this->number = GetNumberFromPath(path);
   CheckIsIndoor();
   if (!this->isIndoor) {
     CalcPhase();
   }
+
+  resize(this->raw, this->resized, Size(64, 48));
+
+  this->raw_norm = norm(this->raw);
+  this->resized_norm = norm(this->resized);
 }
 
-void Frame::CheckIsIndoor() {}
+void Frame::CheckIsIndoor() {
+  Mat title_area = this->raw(Range(400, 431), Range(50, 401));
+  Mat dst;
+  absdiff(title_area, TITLE, dst);
+  Scalar_<double> diffsum = sum(dst);
+  this->isIndoor = (diffsum[0] < 8e5 && diffsum[1] < 8e5 && diffsum[2] < 8e5);
+}
 
-void Frame::CalcPhase() {}
-
-void Frame::CalcHist() {}
+void Frame::CalcPhase() {
+  long long min_diff = 1e10;
+  Mat earth_area = this->raw(Range(395, 421), Range(65, 111));
+  Mat dst;
+  for (int i = 0; i != EARTH_NUMBER; ++i) {
+    absdiff(EARTH[i], earth_area, dst);
+    auto s = sum(dst);
+    long long t = s.val[0] + s.val[1] + s.val[2];
+    if (t < min_diff) {
+      min_diff = t;
+      this->phase = i;
+    }
+  }
+}
