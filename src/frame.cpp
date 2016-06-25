@@ -30,10 +30,7 @@ Frame::Frame(const char *path) {
     CalcPhase();
   }
 
-  resize(this->raw, this->resized, Size(64, 48));
-
-  this->raw_norm = norm(this->raw);
-  this->resized_norm = norm(this->resized);
+  resize(this->raw, this->resized, Size(128, 96));
 }
 
 void Frame::CheckIsIndoor() {
