@@ -43,7 +43,7 @@ Frame::Frame(const char *path) {
     CalcPhase();
   }
 
-  resize(this->raw, this->resized, Size(128, 96));
+  resize(this->raw, this->resized, Size(160, 120));
 }
 
 void Frame::CheckIsIndoor() {

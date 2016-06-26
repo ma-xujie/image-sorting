@@ -45,9 +45,18 @@ int main(int argc, char const *argv[]) {
   deque<int> indoor_sorted = SortFrames(indoor_frames);
 
   cout << "Sorting Outdoor Frames..." << endl;
-  deque<int> outdoor_presorted = SortFrames(outdoor_frames);
+  // deque<int> outdoor_presorted = SortFrames(outdoor_frames);
+  vector<vector<int>> scenes = Clustering(outdoor_frames);
+  vector<vector<int>> presorted_scenes;
+  for (int i = 0; i != scenes.size(); ++i) {
+    vector<int> scene;
+    deque<int> sorted_scene = SortFrames(scenes[i]);
+    scene.insert(scene.end(), sorted_scene.begin(), sorted_scene.end());
+    presorted_scenes.push_back(scene);
+  }
+
   deque<vector<int>> outdoor_sorted =
-      OutdoorFramesReorder(outdoor_presorted, frames);
+      OutdoorFramesReorder(presorted_scenes, frames);
 
   cout << "Writing Results..." << endl;
 
@@ -56,9 +65,9 @@ int main(int argc, char const *argv[]) {
   ofstream f12("A12.txt", ios_base::out);
   for (int i = 0; i != frames.size(); ++i) {
     if (frames[i].isIndoor) {
-      f11 << frames[i].filename << endl;
+      f11 << frames[i].number << ".jpg" << endl;
     } else {
-      f12 << frames[i].filename << endl;
+      f12 << frames[i].number << ".jpg" << endl;
     }
   }
   f11.close();
@@ -67,7 +76,7 @@ int main(int argc, char const *argv[]) {
   // (b)
   ofstream f2("A2.txt", ios_base::out);
   for (auto i : indoor_sorted) {
-    f2 << frames[i].filename << endl;
+    f2 << frames[i].number << ".jpg" << endl;
   }
   f2.close();
 
@@ -76,12 +85,26 @@ int main(int argc, char const *argv[]) {
   int scene_number = 1;
   for (auto &scene : outdoor_sorted) {
     for (auto i : scene) {
-      f3 << frames[i].filename << ' ' << scene_number << endl;
-      cout << scene_number << endl;
-      imshow("haha", frames[i].raw);
-      waitKey(0);
+      f3 << frames[i].number << ".jpg"
+         << " , " << scene_number << endl;
     }
     ++scene_number;
   }
   f3.close();
+
+  cout << "Done!" << endl;
+  cout << "Scene Indoor" << endl;
+  for (auto i : indoor_sorted) {
+    imshow("I Love Signal And System :-)", frames[i].raw);
+    waitKey(40);
+  }
+
+  scene_number = 1;
+  for (auto &scene : outdoor_sorted) {
+    cout << "Scene " << scene_number++ << endl;
+    for (auto i : scene) {
+      imshow("I Love Signal And System :-)", frames[i].raw);
+      waitKey(40);
+    }
+  }
 }

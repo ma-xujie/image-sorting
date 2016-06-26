@@ -117,61 +117,11 @@ bool IsSceneInversed(vector<int> scene, const vector<Frame> &frames) {
   return s < 0;
 }
 
-deque<vector<int>> OutdoorFramesReorder(deque<int> outdoor_frames,
+deque<vector<int>> OutdoorFramesReorder(vector<vector<int>> scenes,
                                         const vector<Frame> &frames) {
-  const int threshold = 6e6;
-
-  vector<vector<int>> scenes;
   deque<vector<int>> sorted_scenes;
-
-  vector<int> cur_scene;
-  cur_scene.push_back(outdoor_frames.front());
-  outdoor_frames.pop_front();
-  while (!outdoor_frames.empty()) {
-    if (ABSDIFF[outdoor_frames.front()][cur_scene.back()] < threshold) {
-      cur_scene.push_back(outdoor_frames.front());
-      outdoor_frames.pop_front();
-    } else {
-      scenes.push_back(cur_scene);
-      cur_scene.clear();
-      cur_scene.push_back(outdoor_frames.front());
-      outdoor_frames.pop_front();
-    }
-  }
-
-  for (int i = 0; i != scenes.size(); ++i) {
-    if (IsSceneInversed(scenes[i], frames)) {
-      reverse(scenes[i].begin(), scenes[i].end());
-    }
-  }
-
-  int concat_flag = 1;
-  while (concat_flag) {
-    concat_flag = 0;
-    for (int i = 0; i != scenes.size(); ++i) {
-      for (int j = 0; j != scenes.size(); ++j) {
-        if (i == j || scenes[i].empty() || scenes[j].empty()) {
-          continue;
-        }
-        int ib = scenes[i].back(), jf = scenes[j].front();
-        if ((ABSDIFF[ib][jf] < threshold ||
-             (scenes[i].size() > 1 &&
-              ABSDIFF[ib][jf] < 2 * ABSDIFF[ib][*(scenes[i].end() - 2)]) ||
-             (scenes[j].size() > 1 &&
-              ABSDIFF[ib][jf] < 2 * ABSDIFF[jf][scenes[j][1]])) &&
-            (abs(frames[ib].phase - frames[jf].phase) < 4 ||
-             frames[ib].phase - frames[jf].phase > 298)) {
-          scenes[i].insert(scenes[i].end(), scenes[j].begin(), scenes[j].end());
-          scenes[j].clear();
-          concat_flag = 1;
-        }
-      }
-    }
-  }
-
   sorted_scenes.push_back(scenes.back());
-  scenes.back().clear();
-
+  scenes.pop_back();
   int all_empty_flag = 0;
   while (!all_empty_flag) {
     int min_phase_diff = 1000;
@@ -215,4 +165,60 @@ deque<vector<int>> OutdoorFramesReorder(deque<int> outdoor_frames,
     }
   }
   return sorted_scenes;
+}
+
+vector<vector<int>> Clustering(vector<int> frames) {
+  const int threshold = 25e5;
+  vector<vector<int>> scenes;
+  scenes.push_back(vector<int>(1, frames.back()));
+  frames.pop_back();
+
+  while (!frames.empty()) {
+    int frame = frames.back();
+    frames.pop_back();
+    int min_absdiff = 1e9, min_scene = 0;
+    for (int i = 0; i != scenes.size(); ++i) {
+      for (int j = 0; j != scenes[i].size(); ++j) {
+        if (ABSDIFF[frame][scenes[i][j]] < min_absdiff) {
+          min_absdiff = ABSDIFF[frame][scenes[i][j]];
+          min_scene = i;
+        }
+      }
+    }
+    if (min_absdiff < threshold) {
+      scenes[min_scene].push_back(frame);
+    } else {
+      scenes.push_back(vector<int>(1, frame));
+    }
+  }
+
+  bool scene_adjustment_flag = 1;
+  while (scene_adjustment_flag) {
+    scene_adjustment_flag = 0;
+    for (int i = 0; i != scenes.size(); ++i) {
+      if (scenes[i].size() < 25) {
+        int min_scene = -1;
+        int min_absdiff = 1e9;
+        for (int j = 0; j != scenes.size(); ++j) {
+          if (j == i || scenes[j].size() < 25) {
+            continue;
+          }
+          int absdiff = ABSDIFF[scenes[j][0]][scenes[i][0]];
+          if (absdiff < min_absdiff) {
+            min_absdiff = absdiff;
+            min_scene = j;
+          }
+        }
+        if (min_scene != -1) {
+          scene_adjustment_flag = 1;
+          scenes[min_scene].insert(scenes[min_scene].end(), scenes[i].begin(),
+                                   scenes[i].end());
+          scenes[i] = scenes.back();
+          scenes.pop_back();
+          break;
+        }
+      }
+    }
+  }
+  return scenes;
 }
