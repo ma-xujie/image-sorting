@@ -65,6 +65,37 @@ int NearestFrameIndex(int src, const vector<int> &range) {
   return nearest_index;
 }
 
+double PhaseBonus(int phase1, int phase2, bool is_back) {
+  int phase_diff = phase2 - phase1;
+  if (phase_diff < -290) {
+    phase_diff += 302;
+  }
+  if (phase_diff > 290) {
+    phase_diff -= 302;
+  }
+  if (0 <= phase_diff && phase_diff <= 3 && is_back) {
+    return 0.75;
+  } else if (-3 <= phase_diff && phase_diff <= 0 && !is_back) {
+    return 0.75;
+  }
+  return 1;
+}
+
+int NearestFrameIndex(int src, const vector<int> &range,
+                      const vector<Frame> &frames, bool is_back) {
+  double min_absdiff = 1e9;
+  int nearest_index = -1;
+  for (int i = 0; i != range.size(); ++i) {
+    int absdiff = ABSDIFF[src][range[i]] *
+                  PhaseBonus(frames[src].phase, frames[i].phase, is_back);
+    if (absdiff < min_absdiff) {
+      min_absdiff = absdiff;
+      nearest_index = i;
+    }
+  }
+  return nearest_index;
+}
+
 deque<int> SortFrames(vector<int> frames) {
   deque<int> sorted_frames;
   sorted_frames.push_back(frames.back());
@@ -101,20 +132,56 @@ deque<int> SortFrames(vector<int> frames) {
   return sorted_frames;
 }
 
-bool IsSceneInversed(vector<int> scene, const vector<Frame> &frames) {
-  if (scene.size() == 1) {
-    return false;
-  }
-  int s = 0;
-  for (int i = 0; i != scene.size() - 1; ++i) {
-    int phase_diff = frames[i + 1].phase - frames[i].phase;
-    if ((0 < phase_diff && phase_diff < 5) || phase_diff < 295) {
-      s += 1;
+deque<int> SortOutdoorFrames(vector<int> outdoor_frames,
+                             const vector<Frame> &frames) {
+  deque<int> sorted_frames;
+  sorted_frames.push_back(outdoor_frames.back());
+  outdoor_frames.pop_back();
+  int front_nearest = -1, back_nearest = -1;
+  double front_absdiff, back_absdiff;
+  while (!outdoor_frames.empty()) {
+    if (front_nearest == -1) {
+      front_nearest = NearestFrameIndex(sorted_frames.front(), outdoor_frames,
+                                        frames, false);
+      front_absdiff =
+          PhaseBonus(frames[sorted_frames.front()].phase,
+                     frames[front_nearest].phase, false) *
+          ABSDIFF[sorted_frames.front()][outdoor_frames[front_nearest]];
+    }
+    if (back_nearest == -1) {
+      back_nearest =
+          NearestFrameIndex(sorted_frames.back(), outdoor_frames, frames, true);
+      back_absdiff =
+          PhaseBonus(frames[sorted_frames.back()].phase,
+                     frames[back_nearest].phase, true) *
+          ABSDIFF[sorted_frames.back()][outdoor_frames[back_nearest]];
+    }
+    if (front_nearest == back_nearest) {
+      if (PhaseBonus(frames[sorted_frames.front()].phase,
+                     frames[front_nearest].phase, false) > 1.01) {
+        sorted_frames.push_front(outdoor_frames[front_nearest]);
+        outdoor_frames[front_nearest] = outdoor_frames.back();
+        outdoor_frames.pop_back();
+      } else {
+        sorted_frames.push_back(outdoor_frames[back_nearest]);
+        outdoor_frames[back_nearest] = outdoor_frames.back();
+        outdoor_frames.pop_back();
+      }
+      front_nearest = -1;
+      back_nearest = -1;
+    } else if (front_absdiff < back_absdiff) {
+      sorted_frames.push_front(outdoor_frames[front_nearest]);
+      outdoor_frames[front_nearest] = outdoor_frames.back();
+      outdoor_frames.pop_back();
+      front_nearest = -1;
     } else {
-      s -= 1;
+      sorted_frames.push_back(outdoor_frames[back_nearest]);
+      outdoor_frames[back_nearest] = outdoor_frames.back();
+      outdoor_frames.pop_back();
+      back_nearest = -1;
     }
   }
-  return s < 0;
+  return sorted_frames;
 }
 
 deque<vector<int>> OutdoorFramesReorder(vector<vector<int>> scenes,
@@ -168,7 +235,7 @@ deque<vector<int>> OutdoorFramesReorder(vector<vector<int>> scenes,
 }
 
 vector<vector<int>> Clustering(vector<int> frames) {
-  const int threshold = 25e5;
+  const int threshold = 2e6;
   vector<vector<int>> scenes;
   scenes.push_back(vector<int>(1, frames.back()));
   frames.pop_back();
@@ -195,30 +262,71 @@ vector<vector<int>> Clustering(vector<int> frames) {
   bool scene_adjustment_flag = 1;
   while (scene_adjustment_flag) {
     scene_adjustment_flag = 0;
-    for (int i = 0; i != scenes.size(); ++i) {
-      if (scenes[i].size() < 25) {
-        int min_scene = -1;
-        int min_absdiff = 1e9;
-        for (int j = 0; j != scenes.size(); ++j) {
-          if (j == i || scenes[j].size() < 25) {
-            continue;
-          }
-          int absdiff = ABSDIFF[scenes[j][0]][scenes[i][0]];
-          if (absdiff < min_absdiff) {
-            min_absdiff = absdiff;
-            min_scene = j;
-          }
+    for (int i = 0; i < scenes.size() - 1; ++i) {
+      if (scenes[i].empty()) {
+        continue;
+      }
+      for (int j = i + 1; j < scenes.size(); ++j) {
+        if (scenes[j].empty()) {
+          continue;
         }
-        if (min_scene != -1) {
-          scene_adjustment_flag = 1;
-          scenes[min_scene].insert(scenes[min_scene].end(), scenes[i].begin(),
-                                   scenes[i].end());
-          scenes[i] = scenes.back();
-          scenes.pop_back();
-          break;
+        for (int k = 0; k < scenes[i].size(); ++k) {
+          for (int l = 0; l < scenes[j].size(); ++l) {
+            if (ABSDIFF[scenes[i][k]][scenes[j][l]] < threshold) {
+              scenes[i].insert(scenes[i].end(), scenes[j].begin(),
+                               scenes[j].end());
+              scenes[j].clear();
+              scene_adjustment_flag = 1;
+              break;
+            }
+            if (scene_adjustment_flag) {
+              break;
+            }
+          }
         }
       }
     }
   }
+
+  scene_adjustment_flag = 1;
+  while (scene_adjustment_flag) {
+    scene_adjustment_flag = 0;
+    for (int i = 0; i != scenes.size(); ++i) {
+      for (int j = 0; j != scenes.size(); ++j) {
+        if (j == i || scenes[i].empty() || scenes[j].empty() ||
+            scenes[j].size() > 25) {
+          continue;
+        }
+        int min_scene = 0;
+        int min_absdiff = 1e9;
+        for (int k = 0; k != scenes[i].size(); ++k) {
+          for (int l = 0; l != scenes[j].size(); ++l) {
+            if (ABSDIFF[scenes[i][k]][scenes[j][l]] < min_absdiff) {
+              min_absdiff = ABSDIFF[scenes[i][k]][scenes[j][l]];
+              min_scene = i;
+              scene_adjustment_flag = 1;
+            }
+          }
+        }
+        scenes[i].insert(scenes[i].end(), scenes[j].begin(), scenes[j].end());
+        scenes[j].clear();
+        break;
+      }
+    }
+  }
+
+  bool scene_remove_flag = 1;
+  while (scene_remove_flag) {
+    scene_remove_flag = 0;
+    for (int i = 0; i != scenes.size(); ++i) {
+      if (scenes[i].empty()) {
+        scenes[i] = scenes.back();
+        scenes.pop_back();
+        scene_remove_flag = 1;
+        break;
+      }
+    }
+  }
+
   return scenes;
 }

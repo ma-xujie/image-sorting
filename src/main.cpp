@@ -50,7 +50,7 @@ int main(int argc, char const *argv[]) {
   vector<vector<int>> presorted_scenes;
   for (int i = 0; i != scenes.size(); ++i) {
     vector<int> scene;
-    deque<int> sorted_scene = SortFrames(scenes[i]);
+    deque<int> sorted_scene = SortOutdoorFrames(scenes[i], frames);
     scene.insert(scene.end(), sorted_scene.begin(), sorted_scene.end());
     presorted_scenes.push_back(scene);
   }
@@ -93,11 +93,11 @@ int main(int argc, char const *argv[]) {
   f3.close();
 
   cout << "Done!" << endl;
-  cout << "Scene Indoor" << endl;
-  for (auto i : indoor_sorted) {
-    imshow("I Love Signal And System :-)", frames[i].raw);
-    waitKey(40);
-  }
+  // cout << "Scene Indoor" << endl;
+  // for (auto i : indoor_sorted) {
+  ////imshow("I Love Signal And System :-)", frames[i].raw);
+  ////waitKey(40);
+  //}
 
   scene_number = 1;
   for (auto &scene : outdoor_sorted) {
