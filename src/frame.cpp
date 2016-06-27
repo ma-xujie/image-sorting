@@ -22,31 +22,41 @@ int GetNumberFromPath(const char *path) {
   return ret;
 }
 
-Frame::Frame(const char *path) {
-  this->raw = imread(path);
-  this->number = GetNumberFromPath(path);
-  CheckIsIndoor();
-  if (!this->isIndoor) {
-    CalcPhase();
+const char *GetFilenameFromPath(const char *path) {
+  const char *filename = path;
+  int i = 0;
+  while (path[i] != 0) {
+    if (path[i] == '/' || path[i] == '\\') {
+      filename = path + i + 1;
+    }
+    ++i;
   }
-
-  resize(this->raw, this->resized, Size(64, 48));
-
-  this->raw_norm = norm(this->raw);
-  this->resized_norm = norm(this->resized);
+  return filename;
 }
 
-void Frame::CheckIsIndoor() {
-  Mat title_area = this->raw(Range(400, 431), Range(50, 401));
+Frame::Frame(const char *path) {
+  Mat image = imread(path);
+  this->filename = GetFilenameFromPath(path);
+  this->number = GetNumberFromPath(path);
+  CheckIsIndoor(image);
+  if (!this->isIndoor) {
+    CalcPhase(image);
+  }
+
+  resize(image, this->resized, Size(160, 120));
+}
+
+void Frame::CheckIsIndoor(Mat &image) {
+  Mat title_area = image(Range(400, 431), Range(50, 401));
   Mat dst;
   absdiff(title_area, TITLE, dst);
   Scalar_<double> diffsum = sum(dst);
   this->isIndoor = (diffsum[0] < 8e5 && diffsum[1] < 8e5 && diffsum[2] < 8e5);
 }
 
-void Frame::CalcPhase() {
+void Frame::CalcPhase(Mat &image) {
   long long min_diff = 1e10;
-  Mat earth_area = this->raw(Range(395, 421), Range(65, 111));
+  Mat earth_area = image(Range(395, 421), Range(65, 111));
   Mat dst;
   for (int i = 0; i != EARTH_NUMBER; ++i) {
     absdiff(EARTH[i], earth_area, dst);

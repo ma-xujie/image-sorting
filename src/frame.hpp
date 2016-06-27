@@ -6,17 +6,15 @@
 class Frame {
 public:
   Frame(const char *path);
-  Mat raw;
   Mat resized;
-  double raw_norm;
-  double resized_norm;
   bool isIndoor;
   int phase;
   int number;
+  string filename;
 
 private:
-  void CheckIsIndoor();
-  void CalcPhase();
+  void CheckIsIndoor(Mat &image);
+  void CalcPhase(Mat &image);
 };
 
 #endif /* end of include guard: FRAME_HPP_INCLUDE */
