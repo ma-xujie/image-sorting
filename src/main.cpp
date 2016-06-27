@@ -93,18 +93,4 @@ int main(int argc, char const *argv[]) {
   f3.close();
 
   cout << "Done!" << endl;
-  // cout << "Scene Indoor" << endl;
-  // for (auto i : indoor_sorted) {
-  ////imshow("I Love Signal And System :-)", frames[i].raw);
-  ////waitKey(40);
-  //}
-
-  scene_number = 1;
-  for (auto &scene : outdoor_sorted) {
-    cout << "Scene " << scene_number++ << endl;
-    for (auto i : scene) {
-      imshow("I Love Signal And System :-)", frames[i].raw);
-      waitKey(40);
-    }
-  }
 }
