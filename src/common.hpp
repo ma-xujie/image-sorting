@@ -13,9 +13,8 @@
 using namespace std;
 using namespace cv;
 
-const int MAX_FRAME_NUMBER = 5000;
+const int MAX_FRAME_NUMBER = 6000;
 extern int ABSDIFF[MAX_FRAME_NUMBER][MAX_FRAME_NUMBER];
-extern bool USED[MAX_FRAME_NUMBER];
 
 const int EARTH_NUMBER = 302;
 extern Mat EARTH[EARTH_NUMBER];
