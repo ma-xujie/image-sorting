@@ -34,7 +34,9 @@ int Scene::FrontAbsdiff(const Scene &another_scene) {
 bool Scene::BackPhaseContinue(Scene &another_scene, int n) {
   int phase_diff = all_frames->at(another_scene.frames.front()).phase -
                    all_frames->at(this->frames.back()).phase;
-  return (0 <= phase_diff && phase_diff <= n) || phase_diff <= (n - 301);
+  int lower_bound = another_scene.frames.size() >= 4 ? -2 : 0;
+  return (lower_bound <= phase_diff && phase_diff <= n) ||
+         phase_diff <= (n - 301);
 }
 
 bool Scene::FrontPhaseContinue(Scene &another_scene, int n) {

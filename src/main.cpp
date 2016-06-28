@@ -86,4 +86,34 @@ int main(int argc, char const *argv[]) {
   f3.close();
 
   cout << "Done!" << endl;
+
+  cout << "Show All Sorted Frames?(y/N)";
+  string choice;
+  cin >> choice;
+  if (choice == "y" || choice == "Y") {
+    cout << "Scene Indoor" << endl;
+    ifstream f4("A2.txt", ios_base::in);
+    string file_number;
+    while (f4 >> file_number) {
+      string filepath(dir);
+      filepath = filepath + "/" + file_number + ".jpg";
+      auto t = imread(filepath.c_str());
+      imshow("I Love Signal & System", t);
+      waitKey(40);
+    }
+    f4.close();
+
+    cout << "Scene Outdoor" << endl;
+    ifstream f5("A3.txt", ios_base::in);
+    string scene;
+    while (f5 >> file_number >> scene) {
+      file_number.pop_back();
+      string filepath(dir);
+      filepath = filepath + "/" + file_number + ".jpg";
+      auto t = imread(filepath.c_str());
+      imshow("I Love Signal & System", t);
+      waitKey(40);
+    }
+    f5.close();
+  }
 }
