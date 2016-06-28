@@ -1,5 +1,6 @@
 #include "common.hpp"
 #include "frame.hpp"
+#include "scene.hpp"
 #include "tools.hpp"
 #include <fstream>
 
@@ -32,6 +33,8 @@ int main(int argc, char const *argv[]) {
   InitAbsdiff(frames);
 
   cout << "Sorting Frames..." << endl;
+  // 实际上计算是否为演播室场景在 Frame 类
+  // 的构造函数中就完成了，这里只是单纯将它们收集起来
   vector<int> indoor_frames, outdoor_frames;
   for (int i = 0; i != frames.size(); ++i) {
     if (frames[i].isIndoor) {
@@ -42,21 +45,12 @@ int main(int argc, char const *argv[]) {
   }
 
   cout << "Sorting Indoor Frames..." << endl;
+  // 给演播室的场景排序
   deque<int> indoor_sorted = SortFrames(indoor_frames);
 
   cout << "Sorting Outdoor Frames..." << endl;
-  // deque<int> outdoor_presorted = SortFrames(outdoor_frames);
-  vector<vector<int>> scenes = Clustering(outdoor_frames);
-  vector<vector<int>> presorted_scenes;
-  for (int i = 0; i != scenes.size(); ++i) {
-    vector<int> scene;
-    deque<int> sorted_scene = SortOutdoorFrames(scenes[i], frames);
-    scene.insert(scene.end(), sorted_scene.begin(), sorted_scene.end());
-    presorted_scenes.push_back(scene);
-  }
-
-  deque<vector<int>> outdoor_sorted =
-      OutdoorFramesReorder(presorted_scenes, frames);
+  // 完成分镜头（Scene）和镜头内排序的工作
+  deque<Scene> outdoor_sorted = SortOutdoorFrames(outdoor_frames, frames);
 
   cout << "Writing Results..." << endl;
 
@@ -65,9 +59,9 @@ int main(int argc, char const *argv[]) {
   ofstream f12("A12.txt", ios_base::out);
   for (int i = 0; i != frames.size(); ++i) {
     if (frames[i].isIndoor) {
-      f11 << frames[i].number << ".jpg" << endl;
+      f11 << frames[i].number << endl;
     } else {
-      f12 << frames[i].number << ".jpg" << endl;
+      f12 << frames[i].number << endl;
     }
   }
   f11.close();
@@ -76,7 +70,7 @@ int main(int argc, char const *argv[]) {
   // (b)
   ofstream f2("A2.txt", ios_base::out);
   for (auto i : indoor_sorted) {
-    f2 << frames[i].number << ".jpg" << endl;
+    f2 << frames[i].number << endl;
   }
   f2.close();
 
@@ -84,9 +78,8 @@ int main(int argc, char const *argv[]) {
   ofstream f3("A3.txt", ios_base::out);
   int scene_number = 1;
   for (auto &scene : outdoor_sorted) {
-    for (auto i : scene) {
-      f3 << frames[i].number << ".jpg"
-         << " , " << scene_number << endl;
+    for (auto i : scene.frames) {
+      f3 << frames[i].number << ", " << scene_number << endl;
     }
     ++scene_number;
   }

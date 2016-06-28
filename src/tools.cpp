@@ -1,8 +1,9 @@
 #include "tools.hpp"
 #include <dirent.h>
 #include <sys/types.h>
+#include <vector>
 
-std::vector<std::string> ListDir(const char *path) {
+vector<string> ListDir(const char *path) {
   DIR *dir;
   dir = opendir(path);
   if (dir == NULL) {
@@ -53,9 +54,10 @@ void InitAbsdiff(const vector<Frame> &frames) {
   }
 }
 
+// 找到 range 容器中与 src 之间相似度最高的一帧
 int NearestFrameIndex(int src, const vector<int> &range) {
   double min_absdiff = 1e9;
-  int nearest_index = -1;
+  int nearest_index = 0;
   for (int i = 0; i != range.size(); ++i) {
     if (ABSDIFF[src][range[i]] < min_absdiff) {
       min_absdiff = ABSDIFF[src][range[i]];
@@ -65,37 +67,7 @@ int NearestFrameIndex(int src, const vector<int> &range) {
   return nearest_index;
 }
 
-double PhaseBonus(int phase1, int phase2, bool is_back) {
-  int phase_diff = phase2 - phase1;
-  if (phase_diff < -290) {
-    phase_diff += 302;
-  }
-  if (phase_diff > 290) {
-    phase_diff -= 302;
-  }
-  if (0 <= phase_diff && phase_diff <= 3 && is_back) {
-    return 0.75;
-  } else if (-3 <= phase_diff && phase_diff <= 0 && !is_back) {
-    return 0.75;
-  }
-  return 1;
-}
-
-int NearestFrameIndex(int src, const vector<int> &range,
-                      const vector<Frame> &frames, bool is_back) {
-  double min_absdiff = 1e9;
-  int nearest_index = -1;
-  for (int i = 0; i != range.size(); ++i) {
-    int absdiff = ABSDIFF[src][range[i]] *
-                  PhaseBonus(frames[src].phase, frames[i].phase, is_back);
-    if (absdiff < min_absdiff) {
-      min_absdiff = absdiff;
-      nearest_index = i;
-    }
-  }
-  return nearest_index;
-}
-
+// 用贪心方法给输入容器中的帧排序
 deque<int> SortFrames(vector<int> frames) {
   deque<int> sorted_frames;
   sorted_frames.push_back(frames.back());
@@ -132,201 +104,146 @@ deque<int> SortFrames(vector<int> frames) {
   return sorted_frames;
 }
 
-deque<int> SortOutdoorFrames(vector<int> outdoor_frames,
-                             const vector<Frame> &frames) {
-  deque<int> sorted_frames;
-  sorted_frames.push_back(outdoor_frames.back());
-  outdoor_frames.pop_back();
-  int front_nearest = -1, back_nearest = -1;
-  double front_absdiff, back_absdiff;
-  while (!outdoor_frames.empty()) {
-    if (front_nearest == -1) {
-      front_nearest = NearestFrameIndex(sorted_frames.front(), outdoor_frames,
-                                        frames, false);
-      front_absdiff =
-          PhaseBonus(frames[sorted_frames.front()].phase,
-                     frames[front_nearest].phase, false) *
-          ABSDIFF[sorted_frames.front()][outdoor_frames[front_nearest]];
+// 计算一个帧序列中所有相邻两帧之间绝对差的平均值（听起来很绕对吧，不过代码很简单哦）
+int AverageAbsdiff(const vector<int> &frames) {
+  if (frames.size() <= 1) {
+    return 6e5;
+  } else {
+    int s = 0;
+    for (int i = 0; i != frames.size() - 1; ++i) {
+      s += ABSDIFF[frames[i]][frames[i + 1]];
     }
-    if (back_nearest == -1) {
-      back_nearest =
-          NearestFrameIndex(sorted_frames.back(), outdoor_frames, frames, true);
-      back_absdiff =
-          PhaseBonus(frames[sorted_frames.back()].phase,
-                     frames[back_nearest].phase, true) *
-          ABSDIFF[sorted_frames.back()][outdoor_frames[back_nearest]];
-    }
-    if (front_nearest == back_nearest) {
-      if (PhaseBonus(frames[sorted_frames.front()].phase,
-                     frames[front_nearest].phase, false) > 1.01) {
-        sorted_frames.push_front(outdoor_frames[front_nearest]);
-        outdoor_frames[front_nearest] = outdoor_frames.back();
-        outdoor_frames.pop_back();
-      } else {
-        sorted_frames.push_back(outdoor_frames[back_nearest]);
-        outdoor_frames[back_nearest] = outdoor_frames.back();
-        outdoor_frames.pop_back();
-      }
-      front_nearest = -1;
-      back_nearest = -1;
-    } else if (front_absdiff < back_absdiff) {
-      sorted_frames.push_front(outdoor_frames[front_nearest]);
-      outdoor_frames[front_nearest] = outdoor_frames.back();
-      outdoor_frames.pop_back();
-      front_nearest = -1;
-    } else {
-      sorted_frames.push_back(outdoor_frames[back_nearest]);
-      outdoor_frames[back_nearest] = outdoor_frames.back();
-      outdoor_frames.pop_back();
-      back_nearest = -1;
-    }
+    return s / (frames.size() - 1);
   }
-  return sorted_frames;
 }
 
-deque<vector<int>> OutdoorFramesReorder(vector<vector<int>> scenes,
-                                        const vector<Frame> &frames) {
-  deque<vector<int>> sorted_scenes;
-  sorted_scenes.push_back(scenes.back());
-  scenes.pop_back();
-  int all_empty_flag = 0;
-  while (!all_empty_flag) {
-    int min_phase_diff = 1000;
-    int which_scene;
-    bool is_back;
-    all_empty_flag = 1;
-    for (int i = 0; i != scenes.size(); ++i) {
-      if (scenes[i].empty()) {
-        continue;
-      }
-      all_empty_flag = 0;
-      int back_phase_diff = abs(frames[scenes[i].front()].phase -
-                                frames[sorted_scenes.back().back()].phase);
-      int front_phase_diff = abs(frames[sorted_scenes.front().front()].phase -
-                                 frames[scenes[i].back()].phase);
+// 分镜头！输入参数 presorted_frames 是一个分段连续的帧序列（直接用所有非演播室
+// 场景贪心排序得到），然后从头开始扫描这个序列，如果相邻两个帧之间的相似度大于一个
+// 动态的阈值的话，就认为它们在同一个镜头中，否则将它们拆分为两个镜头。在报告中会详
+// 细叙述这个过程
+vector<Scene> SplitScenes(deque<int> presorted_frames,
+                          const vector<Frame> &all_frames) {
+  vector<Scene> scenes;
+  vector<int> cur_scene;
+  cur_scene.push_back(presorted_frames.front());
+  presorted_frames.pop_front();
+  for (int frame : presorted_frames) {
+    if (ABSDIFF[frame][cur_scene.back()] < 2 * AverageAbsdiff(cur_scene)) {
+      cur_scene.push_back(frame);
+    } else {
+      scenes.emplace_back(Scene(cur_scene, all_frames));
+      cur_scene.clear();
+    }
+  }
+  return scenes;
+}
 
-      if (back_phase_diff > 290) {
-        back_phase_diff = 302 - back_phase_diff;
+// 镜头合并！容器 scenes 中有很多零碎的场景，它们可能属于同一个镜头，只是在最开
+// 始的处理过程中没有放在一起，于是用这个函数让它们在一起！参数 th 帮助确定两个
+// 镜头是否足够相似，参数 phase_bias 决定要拼接的相邻两个场景之间的最大相位偏差
+vector<Scene> ReduceScenes(vector<Scene> scenes, int th, int phase_bias) {
+  bool scenes_reduce_flag = 1;
+  while (scenes_reduce_flag) {
+    scenes_reduce_flag = 0;
+    for (int i = 0; i != scenes.size() - 1; ++i) {
+      auto &scene1 = scenes[i];
+      Scene *next_scene = nullptr;
+      int min_absdiff = 1e9;
+      bool add_back;
+      for (int j = i + 1; j != scenes.size(); ++j) {
+        auto &scene2 = scenes[j];
+        if (scene1.frames.empty() || scene2.frames.empty()) {
+          continue;
+        }
+        // 相似度（绝对差）的阈值为 th * (两个场景的平均绝对差之和)
+        int threshold = th * (AverageAbsdiff(scene1.frames) +
+                              AverageAbsdiff(scene2.frames));
+        if (scene1.BackPhaseContinue(scene2, phase_bias) &&
+            scene1.BackAbsdiff(scene2) < threshold) {
+          if (scene1.BackAbsdiff(scene2) < min_absdiff) {
+            min_absdiff = scene1.BackAbsdiff(scene2);
+            next_scene = &scene2;
+            add_back = true;
+          }
+        } else if (scene1.FrontPhaseContinue(scene2, phase_bias) &&
+                   scene1.FrontAbsdiff(scene2) < threshold) {
+          if (scene1.FrontAbsdiff(scene2) < min_absdiff) {
+            min_absdiff = scene1.FrontAbsdiff(scene2);
+            next_scene = &scene2;
+            add_back = false;
+          }
+        }
       }
-      if (front_phase_diff > 290) {
-        front_phase_diff = 302 - front_phase_diff;
-      }
-      if (back_phase_diff < min_phase_diff) {
-        min_phase_diff = back_phase_diff;
-        which_scene = i;
-        is_back = 1;
-      }
-      if (front_phase_diff < min_phase_diff) {
-        min_phase_diff = front_phase_diff;
-        which_scene = i;
-        is_back = 0;
+      if (next_scene) {
+        if (add_back) {
+          scene1.ConcatBack(*next_scene);
+          next_scene->frames.clear();
+          scenes_reduce_flag = 1;
+        } else {
+          scene1.ConcatFront(*next_scene);
+          next_scene->frames.clear();
+          scenes_reduce_flag = 1;
+        }
       }
     }
-    if (!all_empty_flag) {
-      if (is_back) {
-        sorted_scenes.push_back(scenes[which_scene]);
-      } else {
-        sorted_scenes.push_front(scenes[which_scene]);
-      }
-      scenes[which_scene].clear();
+  }
+
+  vector<Scene> scenes_reduced;
+  for (auto &scene : scenes) {
+    if (!scene.frames.empty()) {
+      scenes_reduced.emplace_back(scene);
     }
+  }
+  return scenes_reduced;
+}
+
+// 给场景排序！这一步就比较轻松啦，考虑场景之间的相位关系，尽量将相位上连续的放在一起就好咯
+deque<Scene> SortScenes(vector<Scene> scenes) {
+  deque<Scene> sorted_scenes(1, scenes.back());
+  scenes.pop_back();
+  while (!scenes.empty()) {
+    bool continue_search = 1;
+    int k = 1;
+    while (continue_search) {
+      continue_search = 1;
+      for (int i = 0; i != scenes.size(); ++i) {
+        if (sorted_scenes.front().FrontPhaseContinue(scenes[i], k)) {
+          sorted_scenes.push_front(scenes[i]);
+          scenes[i] = scenes.back();
+          continue_search = 0;
+          break;
+        }
+        if (sorted_scenes.back().BackPhaseContinue(scenes[i], k)) {
+          sorted_scenes.push_back(scenes[i]);
+          scenes[i] = scenes.back();
+          continue_search = 0;
+          break;
+        }
+      }
+      k++;
+    }
+    scenes.pop_back();
   }
   return sorted_scenes;
 }
 
-vector<vector<int>> Clustering(vector<int> frames) {
-  const int threshold = 2e6;
-  vector<vector<int>> scenes;
-  scenes.push_back(vector<int>(1, frames.back()));
-  frames.pop_back();
+// 给非演播室场景排序的主程序
+deque<Scene> SortOutdoorFrames(vector<int> outdoor_frames,
+                               const vector<Frame> &frames) {
+  // 先用贪心方法将所有非演播室场景排序
+  deque<int> presorted_frames = SortFrames(outdoor_frames);
 
-  while (!frames.empty()) {
-    int frame = frames.back();
-    frames.pop_back();
-    int min_absdiff = 1e9, min_scene = 0;
-    for (int i = 0; i != scenes.size(); ++i) {
-      for (int j = 0; j != scenes[i].size(); ++j) {
-        if (ABSDIFF[frame][scenes[i][j]] < min_absdiff) {
-          min_absdiff = ABSDIFF[frame][scenes[i][j]];
-          min_scene = i;
-        }
-      }
-    }
-    if (min_absdiff < threshold) {
-      scenes[min_scene].push_back(frame);
-    } else {
-      scenes.push_back(vector<int>(1, frame));
-    }
+  // 然后对分段连续的帧序列进行拆分
+  vector<Scene> presplited_scenes = SplitScenes(presorted_frames, frames);
+
+  // 对过度拆分的场景进行合并
+  int dd = 1, dp = 3;
+  vector<Scene> scenes_reduced = ReduceScenes(presplited_scenes, dd, dp);
+  while (scenes_reduced.size() > 70 && dd < 5) { // 改变参数多合并几次
+    scenes_reduced = ReduceScenes(scenes_reduced, ++dd, ++dp);
   }
 
-  bool scene_adjustment_flag = 1;
-  while (scene_adjustment_flag) {
-    scene_adjustment_flag = 0;
-    for (int i = 0; i < scenes.size() - 1; ++i) {
-      if (scenes[i].empty()) {
-        continue;
-      }
-      for (int j = i + 1; j < scenes.size(); ++j) {
-        if (scenes[j].empty()) {
-          continue;
-        }
-        for (int k = 0; k < scenes[i].size(); ++k) {
-          for (int l = 0; l < scenes[j].size(); ++l) {
-            if (ABSDIFF[scenes[i][k]][scenes[j][l]] < threshold) {
-              scenes[i].insert(scenes[i].end(), scenes[j].begin(),
-                               scenes[j].end());
-              scenes[j].clear();
-              scene_adjustment_flag = 1;
-              break;
-            }
-            if (scene_adjustment_flag) {
-              break;
-            }
-          }
-        }
-      }
-    }
-  }
-
-  scene_adjustment_flag = 1;
-  while (scene_adjustment_flag) {
-    scene_adjustment_flag = 0;
-    for (int i = 0; i != scenes.size(); ++i) {
-      for (int j = 0; j != scenes.size(); ++j) {
-        if (j == i || scenes[i].empty() || scenes[j].empty() ||
-            scenes[j].size() > 25) {
-          continue;
-        }
-        int min_scene = 0;
-        int min_absdiff = 1e9;
-        for (int k = 0; k != scenes[i].size(); ++k) {
-          for (int l = 0; l != scenes[j].size(); ++l) {
-            if (ABSDIFF[scenes[i][k]][scenes[j][l]] < min_absdiff) {
-              min_absdiff = ABSDIFF[scenes[i][k]][scenes[j][l]];
-              min_scene = i;
-              scene_adjustment_flag = 1;
-            }
-          }
-        }
-        scenes[i].insert(scenes[i].end(), scenes[j].begin(), scenes[j].end());
-        scenes[j].clear();
-        break;
-      }
-    }
-  }
-
-  bool scene_remove_flag = 1;
-  while (scene_remove_flag) {
-    scene_remove_flag = 0;
-    for (int i = 0; i != scenes.size(); ++i) {
-      if (scenes[i].empty()) {
-        scenes[i] = scenes.back();
-        scenes.pop_back();
-        scene_remove_flag = 1;
-        break;
-      }
-    }
-  }
-
-  return scenes;
+  // 最后给场景之间排序就好啦
+  deque<Scene> sorted_scenes = SortScenes(scenes_reduced);
+  return sorted_scenes;
 }
