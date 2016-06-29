@@ -125,10 +125,9 @@ vector<Scene> SplitScenes(deque<int> presorted_frames,
                           const vector<Frame> &all_frames) {
   vector<Scene> scenes;
   vector<int> cur_scene;
-  cur_scene.push_back(presorted_frames.front());
-  presorted_frames.pop_front();
   for (int frame : presorted_frames) {
-    if (ABSDIFF[frame][cur_scene.back()] < 2 * AverageAbsdiff(cur_scene)) {
+    if (cur_scene.empty() ||
+        ABSDIFF[frame][cur_scene.back()] < 2 * AverageAbsdiff(cur_scene)) {
       cur_scene.push_back(frame);
     } else {
       scenes.emplace_back(Scene(cur_scene, all_frames));
@@ -245,5 +244,6 @@ deque<Scene> SortOutdoorFrames(vector<int> outdoor_frames,
 
   // 最后给场景之间排序就好啦
   deque<Scene> sorted_scenes = SortScenes(scenes_reduced);
+
   return sorted_scenes;
 }

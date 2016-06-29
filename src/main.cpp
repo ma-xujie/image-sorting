@@ -55,8 +55,8 @@ int main(int argc, char const *argv[]) {
   cout << "Writing Results..." << endl;
 
   // (a)
-  ofstream f11("A11.txt", ios_base::out);
-  ofstream f12("A12.txt", ios_base::out);
+  ofstream f11("11.txt", ios_base::out);
+  ofstream f12("12.txt", ios_base::out);
   for (int i = 0; i != frames.size(); ++i) {
     if (frames[i].isIndoor) {
       f11 << frames[i].number << endl;
@@ -68,14 +68,14 @@ int main(int argc, char const *argv[]) {
   f12.close();
 
   // (b)
-  ofstream f2("A2.txt", ios_base::out);
+  ofstream f2("2.txt", ios_base::out);
   for (auto i : indoor_sorted) {
     f2 << frames[i].number << endl;
   }
   f2.close();
 
   // (c)
-  ofstream f3("A3.txt", ios_base::out);
+  ofstream f3("3.txt", ios_base::out);
   int scene_number = 1;
   for (auto &scene : outdoor_sorted) {
     for (auto i : scene.frames) {
@@ -92,7 +92,7 @@ int main(int argc, char const *argv[]) {
   cin >> choice;
   if (choice == "y" || choice == "Y") {
     cout << "Scene Indoor" << endl;
-    ifstream f4("A2.txt", ios_base::in);
+    ifstream f4("2.txt", ios_base::in);
     string file_number;
     while (f4 >> file_number) {
       string filepath(dir);
@@ -104,7 +104,7 @@ int main(int argc, char const *argv[]) {
     f4.close();
 
     cout << "Scene Outdoor" << endl;
-    ifstream f5("A3.txt", ios_base::in);
+    ifstream f5("3.txt", ios_base::in);
     string scene;
     while (f5 >> file_number >> scene) {
       file_number.pop_back();
